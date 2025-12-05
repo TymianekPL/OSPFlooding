@@ -2,40 +2,33 @@ import {useEffect, useState} from "react";
 import type {Property} from "csstype";
 import "./App.css";
 
-type APIColoursType = {
-     "OK": [Property.Color, Property.Color, Property.Color],
-     "Fetching...": [Property.Color, Property.Color, Property.Color],
-     "Unreachable": [Property.Color, Property.Color, Property.Color]
-};
-const APIColours: APIColoursType = {
-     "OK": ["green", "#2c3715", "white"],
-     "Fetching...": ["yellow", "lightyellow", "black"],
-     "Unreachable": ["palevioletred", "red", "white"],
+type APIColoursType = "OK" | "Fetching..." | "Unreachable";
+
+const statusClasses: Record<APIColoursType, string> = {
+     "OK": "bg-green-700 border-green-500 text-white",
+     "Fetching...": "bg-yellow-200 border-yellow-400 text-black",
+     "Unreachable": "bg-red-400 border-red-600 text-white"
 };
 
 function App() {
-     const [status, setStatus] = useState<keyof APIColoursType>("Fetching...");
+     const [status, setStatus] = useState<APIColoursType>("Fetching...");
 
      useEffect(() => {
           fetch("http://localhost:8080/health")
                .then(response => response.text())
-               .then(statusText => setStatus(statusText as keyof APIColoursType));
+               .then(statusText => setStatus(statusText as APIColoursType));
      });
 
      return (
-          <>
-               <div>API Status: <span style={{
-                    backgroundColor: APIColours[status][1],
-                    borderColor: APIColours[status][0],
-                    borderStyle: "solid",
-                    borderWidth: 2,
-                    color: APIColours[status][2],
-                    paddingInline: "12.5px",
-                    paddingBlock: "5px",
-                    borderRadius: "50px",
-               }}>{status}</span></div>
-          </>
-     )
+          <div className="p-4">
+               API Status:{" "}
+               <span
+                    className={`border-2 px-[15px] py-[4px] rounded-full ${statusClasses[status]}`}
+               >
+                    {status}
+               </span>
+          </div>
+     );
 }
 
 export default App;
