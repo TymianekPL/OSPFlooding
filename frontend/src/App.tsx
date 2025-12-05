@@ -1,5 +1,4 @@
 import {useEffect, useState} from "react";
-import type {Property} from "csstype";
 import "./App.css";
 
 type APIColoursType = "OK" | "Fetching..." | "Unreachable";
