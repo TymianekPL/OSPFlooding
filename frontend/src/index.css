@@ -1,37 +1,37 @@
 :root {
-    --background-colour: #11111e;
-    --text-colour: snow;
+     --background-colour: #11111e;
+     --text-colour: snow;
 
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
+     font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+     line-height: 1.5;
+     font-weight: 400;
 
-    color-scheme: light dark;
+     color-scheme: light dark;
 
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+     font-synthesis: none;
+     text-rendering: optimizeLegibility;
+     -webkit-font-smoothing: antialiased;
+     -moz-osx-font-smoothing: grayscale;
 }
 
 * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    outline: 0;
+     box-sizing: border-box;
+     margin: 0;
+     padding: 0;
+     outline: 0;
 }
 
 a {
-    font-weight: 500;
-    color: #5050ff;
-    text-decoration: inherit;
+     font-weight: 500;
+     color: #5050ff;
+     text-decoration: inherit;
 }
 
 a:hover {
-    text-decoration: underline;
+     text-decoration: underline;
 }
 
 body {
-    background-color: var(--background-colour);
-    color: var(--text-colour);
+     background-color: var(--background-colour);
+     color: var(--text-colour);
 }
