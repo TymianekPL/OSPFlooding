@@ -140,6 +140,7 @@ jobs:
 #      - name: Run Integration Tests
 #        run: ./backend/gradlew integrationTest --no-daemon
 #        working-directory: backend
+
   create-pre-release:
     name: Create Pre-release
     runs-on: ubuntu-latest
@@ -152,7 +153,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # download all artifacts
+      # download artifacts
       - name: Download Backend Jar
         uses: actions/download-artifact@v4
         with:
@@ -171,17 +172,22 @@ jobs:
           name: frontend-dist-node-24
           path: ./release/frontend-node24
 
+      - name: Zip artifacts
+        run: |
+          cd release
+          zip -r backend.zip backend
+          zip -r frontend-node22.zip frontend-node22
+          zip -r frontend-node24.zip frontend-node24
+
       - name: Get commit log
         id: commits
         run: |
           before="${{ github.event.before }}"
           after="${{ github.sha }}"
 
-          # If the before commit doesn't exist locally, ignore it
           if git cat-file -e "$before" 2>/dev/null; then
             log=$(git log --pretty=format:"%h %s" "$before".."$after")
           else
-            echo "Previous commit not found, using recent history"
             log=$(git log -n 20 --pretty=format:"%h %s")
           fi
 
@@ -202,33 +208,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # upload all assets
-      - name: Upload Backend Jar Asset
+      # upload assets
+      - name: Upload Backend Artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/backend
-          asset_name: backend
+          asset_path: ./release/backend.zip
+          asset_name: backend.zip
           asset_content_type: application/zip
 
-      - name: Upload Frontend Node22 Asset
+      - name: Upload Frontend Node22 Artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/frontend-node22
-          asset_name: frontend-node22
+          asset_path: ./release/frontend-node22.zip
+          asset_name: frontend-node22.zip
           asset_content_type: application/zip
 
-      - name: Upload Frontend Node24 Asset
+      - name: Upload Frontend Node24 Artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/frontend-node24
-          asset_name: frontend-node24
+          asset_path: ./release/frontend-node24.zip
+          asset_name: frontend-node24.zip
           asset_content_type: application/zip
