@@ -2,4 +2,4 @@
 *.iws
 *.iml
 *.ipr
-.env
+backend/.env
