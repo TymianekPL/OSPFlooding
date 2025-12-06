@@ -147,11 +147,15 @@ jobs:
       - name: Get commit log
         id: commits
         run: |
-          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
-            echo "First push detected"
-            log=$(git log -n 20 --pretty=format:"%h %s")
+          before="${{ github.event.before }}"
+          after="${{ github.sha }}"
+          
+          # If the before commit doesn't exist locally, ignore it
+          if git cat-file -e "$before" 2>/dev/null; then
+            log=$(git log --pretty=format:"%h %s" "$before".."$after")
           else
-            log=$(git log --pretty=format:"%h %s" ${{ github.event.before }}..${{ github.sha }})
+            echo "Previous commit not found, using recent history"
+            log=$(git log -n 20 --pretty=format:"%h %s")
           fi
           
           {
