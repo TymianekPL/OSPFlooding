@@ -97,7 +97,7 @@ jobs:
     needs:
       - backend-build
       - frontend-build
-    if: github.ref == 'refs/heads/main' || contains(join(fromJSON(toJson(github.event.pull_request.labels)), ','), 'run-integration')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && contains(join(fromJSON(toJson(github.event.pull_request.labels)), ','), 'run-integration'))
     steps:
       - uses: actions/checkout@v3
 
@@ -120,7 +120,7 @@ jobs:
           path: ./frontend-artifact/node24
 
       - name: Start MariaDB
-        run: docker-compose -f ./docker-compose.test.yml up -d
+        run: docker compose -f ./docker-compose.test.yml up -d
 
       - name: Wait for DB
         run: |
@@ -137,3 +137,27 @@ jobs:
       - name: Run Integration Tests
         run: ./backend/gradlew integrationTest --no-daemon
         working-directory: backend
+  create-pre-release:
+    name: Create Pre-release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [backend-build, frontend-build]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get commit log
+        id: commits
+        run: |
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"%h %s" ${{ github.event.before }}..${{ github.sha }} >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create pre-release
+        uses: actions/create-release@v1
+        with:
+          tag_name: pre-${{ github.run_number }}
+          release_name: Pre-release ${{ github.run_number }}
+          body: ${{ steps.commits.outputs.commits }}
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
