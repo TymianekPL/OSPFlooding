@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
   pull_request:
-    branches: [main]
+    branches: [main, development]
 
 jobs:
   backend-build:
@@ -97,7 +97,7 @@ jobs:
     needs:
       - backend-build
       - frontend-build
-    if: contains(join(fromJSON(toJson(github.event.pull_request.labels)), ','), 'run-integration')
+    if: github.ref == 'refs/heads/main' || contains(join(fromJSON(toJson(github.event.pull_request.labels)), ','), 'run-integration')
     steps:
       - uses: actions/checkout@v3
 
