@@ -25,6 +25,7 @@ jobs:
     needs: backend-build
     steps:
       - uses: actions/checkout@v3
+      - run: chmod +x ./backend/gradlew
       - uses: actions/setup-java@v3
         with:
           distribution: temurin
