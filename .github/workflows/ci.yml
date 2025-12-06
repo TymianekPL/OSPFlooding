@@ -144,13 +144,22 @@ jobs:
     needs: [backend-build, frontend-build]
     steps:
       - uses: actions/checkout@v3
-
       - name: Get commit log
         id: commits
         run: |
-          echo "commits<<EOF" >> $GITHUB_OUTPUT
-          git log --pretty=format:"%h %s" ${{ github.event.before }}..${{ github.sha }} >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push detected"
+            log=$(git log -n 20 --pretty=format:"%h %s")
+          else
+            log=$(git log --pretty=format:"%h %s" ${{ github.event.before }}..${{ github.sha }})
+          fi
+          
+          {
+            echo "commits<<EOF"
+            echo "$log"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
 
       - name: Create pre-release
         uses: actions/create-release@v1
