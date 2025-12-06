@@ -17,7 +17,7 @@
 
 **Download:**
 - **Backend ZIP:**  
-  https://github.com/TymianekPL/OSPFlooding/releases/download/latest/backend.zip
+  https://github.com/TymianekPL/OSPFlooding/releases/latest/download/backend.zip
 - **Frontend Build (ZIP):**  
   https://github.com/TymianekPL/OSPFlooding/releases/latest/download/frontend-dist.zip
 
