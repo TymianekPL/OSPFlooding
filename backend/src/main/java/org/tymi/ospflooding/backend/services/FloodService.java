@@ -2,6 +2,7 @@ package org.tymi.ospflooding.backend.services;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tymi.ospflooding.backend.models.FloodCache;
@@ -28,14 +29,16 @@ public class FloodService {
      private final FloodPointRepository floodPointRepository;
      private final HttpClient httpClient;
      private final Map<String, Set<Long>> floodedPointsCache = new ConcurrentHashMap<>();
+     private final Environment environment;
 
      public FloodService(FloodCacheRepository floodCacheRepository,
-                         FloodPointRepository floodPointRepository) {
+                         FloodPointRepository floodPointRepository, Environment environment) {
           this.floodCacheRepository = floodCacheRepository;
           this.floodPointRepository = floodPointRepository;
           this.httpClient = HttpClient.newBuilder()
                   .connectTimeout(java.time.Duration.ofSeconds(30))
                   .build();
+          this.environment = environment;
      }
 
      @Transactional(readOnly = true)
@@ -280,7 +283,7 @@ public class FloodService {
      private Set<FloodPoint> downloadAndProcessFloodData(double south, double west, double north, double east,
                                                          String startDate, String endDate) throws IOException, InterruptedException {
           String url = String.format(Locale.ROOT,
-                  "https://services.sentinel-hub.com/ogc/wcs/79251ab1-0e04-4e55-a9ee-96e4a422ab01" +
+                  "https://services.sentinel-hub.com/ogc/wcs/" + environment.getProperty("WCS_UUID") +
                           "?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=FLOODLAYER&FORMAT=image/png" +
                           "&BBOX=%f,%f,%f,%f&CRS=EPSG:4326&TIME=%s/%s&RESX=0.00005&RESY=0.00005",
                   west, south, east, north, "2025-12-04", "2025-12-05");
