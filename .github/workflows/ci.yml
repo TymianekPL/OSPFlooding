@@ -137,3 +137,27 @@ jobs:
       - name: Run Integration Tests
         run: ./backend/gradlew integrationTest --no-daemon
         working-directory: backend
+  create-pre-release:
+    name: Create Pre-release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [backend-build, frontend-build]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get commit log
+        id: commits
+        run: |
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"%h %s" ${{ github.event.before }}..${{ github.sha }} >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create pre-release
+        uses: actions/create-release@v1
+        with:
+          tag_name: pre-${{ github.run_number }}
+          release_name: Pre-release ${{ github.run_number }}
+          body: ${{ steps.commits.outputs.commits }}
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
