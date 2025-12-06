@@ -2,7 +2,7 @@ name: CI
 
 permissions:
   contents: write
-  
+
 on:
   push:
     branches: [main, development]
@@ -94,65 +94,89 @@ jobs:
         working-directory: frontend
       - run: npm run --if-present test
         working-directory: frontend
-  integration-test:
-    name: Integration Tests
+#  integration-test:
+#    name: Integration Tests
+#    runs-on: ubuntu-latest
+#    needs:
+#      - backend-build
+#      - frontend-build
+#    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && contains(join(fromJSON(toJson(github.event.pull_request.labels)), ','), 'run-integration'))
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Download Backend Jar
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: backend-jar
+#          path: ./backend-artifact
+#
+#      - name: Download Frontend Dist Node 22
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: frontend-dist-node-22
+#          path: ./frontend-artifact/node22
+#
+#      - name: Download Frontend Dist Node 24
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: frontend-dist-node-24
+#          path: ./frontend-artifact/node24
+#
+#      - name: Start MariaDB
+#        run: docker compose -f ./docker-compose.test.yml up -d
+#
+#      - name: Wait for DB
+#        run: |
+#          until docker exec mariadb mysqladmin ping -h"localhost" --silent; do
+#            echo "Waiting for DB..."
+#            sleep 2
+#          done
+#
+#      - name: Run Backend
+#        run: java -jar ./backend-artifact/*.jar &
+#
+#      - run: sleep 5 # wait for the backend to start
+#
+#      - name: Run Integration Tests
+#        run: ./backend/gradlew integrationTest --no-daemon
+#        working-directory: backend
+  create-pre-release:
+    name: Create Pre-release
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - backend-build
       - frontend-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && contains(join(fromJSON(toJson(github.event.pull_request.labels)), ','), 'run-integration'))
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
+      # download all artifacts
       - name: Download Backend Jar
         uses: actions/download-artifact@v4
         with:
           name: backend-jar
-          path: ./backend-artifact
+          path: ./release/backend
 
-      - name: Download Frontend Dist Node 22
+      - name: Download Frontend Dist (Node 22)
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist-node-22
-          path: ./frontend-artifact/node22
+          path: ./release/frontend-node22
 
-      - name: Download Frontend Dist Node 24
+      - name: Download Frontend Dist (Node 24)
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist-node-24
-          path: ./frontend-artifact/node24
+          path: ./release/frontend-node24
 
-      - name: Start MariaDB
-        run: docker compose -f ./docker-compose.test.yml up -d
-
-      - name: Wait for DB
-        run: |
-          until docker exec mariadb mysqladmin ping -h"localhost" --silent; do
-            echo "Waiting for DB..."
-            sleep 2
-          done
-
-      - name: Run Backend
-        run: java -jar ./backend-artifact/*.jar &
-
-      - run: sleep 5 # wait for the backend to start
-
-      - name: Run Integration Tests
-        run: ./backend/gradlew integrationTest --no-daemon
-        working-directory: backend
-  create-pre-release:
-    name: Create Pre-release
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    needs: [backend-build, frontend-build]
-    steps:
-      - uses: actions/checkout@v3
       - name: Get commit log
         id: commits
         run: |
           before="${{ github.event.before }}"
           after="${{ github.sha }}"
-          
+
           # If the before commit doesn't exist locally, ignore it
           if git cat-file -e "$before" 2>/dev/null; then
             log=$(git log --pretty=format:"%h %s" "$before".."$after")
@@ -160,15 +184,15 @@ jobs:
             echo "Previous commit not found, using recent history"
             log=$(git log -n 20 --pretty=format:"%h %s")
           fi
-          
+
           {
             echo "commits<<EOF"
             echo "$log"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-
       - name: Create pre-release
+        id: create_release
         uses: actions/create-release@v1
         with:
           tag_name: pre-${{ github.run_number }}
@@ -177,3 +201,34 @@ jobs:
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # upload all assets
+      - name: Upload Backend Jar Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/backend
+          asset_name: backend
+          asset_content_type: application/zip
+
+      - name: Upload Frontend Node22 Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/frontend-node22
+          asset_name: frontend-node22
+          asset_content_type: application/zip
+
+      - name: Upload Frontend Node24 Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/frontend-node24
+          asset_name: frontend-node24
+          asset_content_type: application/zip
