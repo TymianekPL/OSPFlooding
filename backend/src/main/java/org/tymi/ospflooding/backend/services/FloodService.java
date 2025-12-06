@@ -286,7 +286,7 @@ public class FloodService {
                   "https://services.sentinel-hub.com/ogc/wcs/" + environment.getProperty("WCS_UUID") +
                           "?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=FLOODLAYER&FORMAT=image/png" +
                           "&BBOX=%f,%f,%f,%f&CRS=EPSG:4326&TIME=%s/%s&RESX=0.00005&RESY=0.00005",
-                  west, south, east, north, "2025-12-04", "2025-12-05");
+                  west, south, east, north, startDate, endDate);
 
           System.out.println("Downloading flood data from: " + url);
 
