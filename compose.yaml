@@ -13,7 +13,7 @@ services:
     volumes:
       - mariadb-data:/var/lib/mysql
     env_file:
-      - .env
+      - backend/.env
 
 volumes:
   mariadb-data:
