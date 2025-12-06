@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: test
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: test
+    ports:
+      - "3306:3306"
