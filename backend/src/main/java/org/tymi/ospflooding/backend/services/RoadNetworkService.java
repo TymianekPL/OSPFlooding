@@ -1,11 +1,14 @@
 package org.tymi.ospflooding.backend.services;
+import org.tymi.ospflooding.backend.records.Edge;
+import org.tymi.ospflooding.backend.records.Node;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 import org.tymi.ospflooding.backend.models.RoadSegment;
+import org.tymi.ospflooding.backend.records.Weight;
 import org.tymi.ospflooding.backend.repositories.RoadSegmentRepository;
-import org.tymi.ospflooding.backend.utilities.NodeDistance;
+import org.tymi.ospflooding.backend.records.NodeDistance;
 import org.tymi.ospflooding.backend.utilities.PathRecord;
 
 import java.io.IOException;
@@ -19,33 +22,30 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.tymi.ospflooding.backend.services.FloodService.pack;
+import static org.tymi.ospflooding.backend.services.FloodService.toIntCoord;
 import static org.tymi.ospflooding.backend.utilities.Algorithm.Haversine;
 import static org.tymi.ospflooding.backend.utilities.Algorithm.LatLonToXY;
 import static org.tymi.ospflooding.backend.utilities.Algorithm.Swapped;
 
-record Node(int id, double lat, double lon) {
-}
-
-/**
- * @param length        metres
- * @param originalWayId helpful for debugging
- * @param coordinates   [[lat,lon],[lat,lon]]
- */
-record Edge(int id, int fromNode, int toNode, double length, int originalWayId, JSONArray coordinates) {
-}
-
 @Service
 public class RoadNetworkService {
      private final RoadSegmentRepository roadRepo;
+     private final FloodService floodService;
 
      private final AtomicInteger edgeIdCounter = new AtomicInteger(1);
 
-     private final Map<Integer, Node> nodes = new HashMap<>();
+     public final Map<Integer, Node> nodes = new HashMap<>();
      private final Map<Integer, Edge> edges = new HashMap<>();
      private final Map<Integer, List<Integer>> adjacency = new HashMap<>();
 
-     public RoadNetworkService(RoadSegmentRepository roadRepo) {
+     private static final Comparator<NodeDistance> distanceComparator =
+             Comparator.<NodeDistance>comparingDouble(nd -> nd.weight().floodPenalty())
+                     .thenComparingDouble(nd -> nd.weight().length());
+
+     public RoadNetworkService(RoadSegmentRepository roadRepo, FloodService floodService) {
           this.roadRepo = roadRepo;
+          this.floodService = floodService;
      }
 
      public void loadOSMRoads(double south, double west, double north, double east) throws UncheckedIOException, InterruptedException, IOException {
@@ -153,33 +153,53 @@ public class RoadNetworkService {
           int endNode = findNearestNode(endLat, endLon);
 
           if (startNode == -1 || endNode == -1) return Collections.emptyList();
+          double south = nodes.values().stream().mapToDouble(Node::lat).min().orElse(startLat);
+          double west  = nodes.values().stream().mapToDouble(Node::lon).min().orElse(startLon);
+          double north = nodes.values().stream().mapToDouble(Node::lat).max().orElse(endLat);
+          double east  = nodes.values().stream().mapToDouble(Node::lon).max().orElse(endLon);
 
-          Map<Integer, Double> dist = new HashMap<>();
+          Set<Long> floodedPoints = floodService.loadFloodedPoints(south, west, north, east);
+
+          Map<Integer, Weight> dist = new HashMap<>();
           Map<Integer, Integer> prevEdge = new HashMap<>();
           Set<Integer> visited = new HashSet<>();
-          PriorityQueue<NodeDistance> pq = new PriorityQueue<>(Comparator.comparingDouble(n -> n.distance));
+          PriorityQueue<NodeDistance> pq =
+                  new PriorityQueue<>(distanceComparator);
 
-          for (Integer nid : nodes.keySet()) dist.put(nid, Double.POSITIVE_INFINITY);
-          dist.put(startNode, 0.0);
-          pq.add(new NodeDistance(startNode, 0.0));
+          for (int nid : nodes.keySet()) {
+               dist.put(nid, new Weight(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
+          }
+          dist.put(startNode, new Weight(0.0, 0.0));
+          pq.add(new NodeDistance(startNode, new Weight(0.0, 0.0)));
 
           while (!pq.isEmpty()) {
-               NodeDistance nodeDistance = pq.poll();
-               if (visited.contains(nodeDistance.node)) continue;
-               visited.add(nodeDistance.node);
+               NodeDistance nd = pq.poll();
+               int current = nd.node();
 
-               if (nodeDistance.node == endNode) break;
+               if (!visited.add(current)) continue;
+               if (current == endNode) break;
 
-               List<Integer> out = adjacency.getOrDefault(nodeDistance.node, List.of());
-               for (int edgeId : out) {
+               for (int edgeId : adjacency.getOrDefault(current, List.of())) {
                     Edge edge = edges.get(edgeId);
                     if (edge == null) continue;
-                    int to = edge.toNode();
-                    double alt = dist.get(nodeDistance.node) + edge.length();
-                    if (alt < dist.getOrDefault(to, Double.POSITIVE_INFINITY)) {
-                         dist.put(to, alt);
-                         prevEdge.put(to, edgeId);
-                         pq.add(new NodeDistance(to, alt));
+
+                    Node from = nodes.get(edge.fromNode());
+                    Node to   = nodes.get(edge.toNode());
+
+                    boolean flooded = isFlooded(floodedPoints, from) || isFlooded(floodedPoints, to);
+                    double penalty = flooded ? 1.0 : 0.0;
+
+                    Weight currentW = dist.get(current);
+                    Weight newW = new Weight(
+                            currentW.floodPenalty() + penalty,
+                            currentW.length() + edge.length()
+                    );
+
+                    Weight old = dist.get(to.id());
+                    if (compare(newW, old) < 0) {
+                         dist.put(to.id(), newW);
+                         prevEdge.put(to.id(), edgeId);
+                         pq.add(new NodeDistance(to.id(), newW));
                     }
                }
           }
@@ -201,6 +221,30 @@ public class RoadNetworkService {
           double totalLen = edgePath.stream().mapToDouble(id -> edges.get(id).length()).sum();
           PathRecord result = new PathRecord(new LinkedList<>(edgePath), totalLen);
           return List.of(result);
+     }
+
+     private int compare(Weight a, Weight b) {
+          int c = Double.compare(a.floodPenalty(), b.floodPenalty());
+          return c != 0 ? c : Double.compare(a.length(), b.length());
+     }
+
+     private static final int LAT_TOL = 30;   // ~3m
+     private static final int LON_TOL = 45;   // ~3m
+
+     private boolean isFlooded(Set<Long> floodedPoints, Node n) {
+          int latInt = toIntCoord(n.lat());
+          int lonInt = toIntCoord(n.lon());
+
+          for (int dy = -LAT_TOL; dy <= LAT_TOL; dy++) {
+               int y = latInt + dy;
+
+               for (int dx = -LON_TOL; dx <= LON_TOL; dx++) {
+                    long k = pack(y, lonInt + dx);
+                    if (floodedPoints.contains(k)) return true;
+               }
+          }
+
+          return false;
      }
 
      public JSONObject buildGeoJson(List<PathRecord> paths) {
