@@ -66,3 +66,5 @@ export const DEFAULT_BOUNDS: MapBounds = {
      southWest: [50.045, 19.900],
      northEast: [50.070, 19.960]
 };
+
+export type ThemeName = "dark" | "light" | "pink";

@@ -5,7 +5,7 @@ import type {
      FeatureCollection,
      FloodFeatureCollection,
      PointFeatureCollection,
-     MapBounds
+     MapBounds, FeatureProperties, FloodPolygonFeature, ThemeName
 } from "../types";
 
 interface MapClickHandlerProps {
@@ -31,6 +31,7 @@ interface MapComponentProps {
      showFloodedAreas: boolean;
      showFloodPoints: boolean;
      bounds: MapBounds;
+     theme: ThemeName;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -42,9 +43,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({
      floodPoints,
      showFloodedAreas,
      showFloodPoints,
-     bounds
+     bounds,
+     theme
 }) => {
-     const onEachRouteFeature = useCallback((feature: any, layer: L.Layer) => {
+     const onEachRouteFeature = useCallback((feature: { properties: FeatureProperties }, layer: L.Layer) => {
           if (feature.properties?.totalLength) {
                const distanceKm = (feature.properties.totalLength / 1000).toFixed(2);
                const timeMinutes = feature.properties.estimatedTime || Math.round(feature.properties.totalLength / 83.33); // 5 km/h walking speed
@@ -59,7 +61,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           }
      }, []);
 
-     const onEachFloodFeature = useCallback((feature: any, layer: L.Layer) => {
+     const onEachFloodFeature = useCallback((feature: FloodPolygonFeature, layer: L.Layer) => {
           const pointCount = feature.properties.pointCount || 0;
           layer.bindPopup(`
       <div class="p-2">
@@ -71,7 +73,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
      }, []);
 
      return (
-          <div className="rounded-lg overflow-hidden shadow-lg border border-gray-200">
+          <div className={`rounded-lg overflow-hidden shadow-lg border border-gray-200 ${
+               theme === "light" ? "bg-white" :
+                    theme === "dark" ? "bg-gray-900" :
+                         "bg-pink-100"
+          }`}>
                <MapContainer
                     center={[50.0575, 19.9365]}
                     zoom={17}
@@ -131,7 +137,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                     {routeGeoJson && (
                          <GeoJSON
                               key={JSON.stringify(routeGeoJson.features.map(f => f.properties.roadIds))}
-                              data={routeGeoJson as any}
+                              data={routeGeoJson as never}
                               onEachFeature={onEachRouteFeature}
                               style={{ color: "#10b981", weight: 4, opacity: 0.8 }}
                          />

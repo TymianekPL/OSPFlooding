@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 
 // Fix for default icons in React/TypeScript
 export const configureLeafletIcons = () => {
-     delete (L.Icon.Default.prototype as any)._getIconUrl;
+     delete (L.Icon.Default.prototype as { _getIconUrl?: string })._getIconUrl;
      L.Icon.Default.mergeOptions({
           iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
           iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
