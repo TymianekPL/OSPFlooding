@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.tymi.ospflooding.backend.exceptions.InvalidFormatDataException;
 import org.tymi.ospflooding.backend.services.FloodService;
 import org.tymi.ospflooding.backend.services.RoadNetworkService;
+import org.tymi.ospflooding.backend.utilities.AppLogger;
 import org.tymi.ospflooding.backend.utilities.PathRecord;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Map;
 @RequestMapping("/api/evac")
 @RequiredArgsConstructor
 public class EvacuationController {
+     private static final AppLogger logger = new AppLogger(EvacuationController.class, AppLogger.Category.CONTROLLER);
      private RoadNetworkService service;
      private FloodService floodService;
 
@@ -87,8 +89,7 @@ public class EvacuationController {
                return ResponseEntity.ok(response.toString());
 
           } catch (Exception e) {
-               // TODO: Logging
-               e.printStackTrace();
+               logger.error(e.getMessage());
                return ResponseEntity.status(500).body("Error getting flood polygons: " + e.getMessage());
           }
      }
