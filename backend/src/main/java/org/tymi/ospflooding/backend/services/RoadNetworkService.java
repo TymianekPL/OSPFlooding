@@ -36,8 +36,8 @@ public class RoadNetworkService {
      private final AtomicInteger edgeIdCounter = new AtomicInteger(1);
 
      public final Map<Integer, Node> nodes = new HashMap<>();
-     private final Map<Integer, Edge> edges = new HashMap<>();
-     private final Map<Integer, List<Integer>> adjacency = new HashMap<>();
+     public final Map<Integer, Edge> edges = new HashMap<>();
+     public final Map<Integer, List<Integer>> adjacency = new HashMap<>();
 
      private static final Comparator<NodeDistance> distanceComparator =
              Comparator.<NodeDistance>comparingDouble(nd -> nd.weight().floodPenalty())
