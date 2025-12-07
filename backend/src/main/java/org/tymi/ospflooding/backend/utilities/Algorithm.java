@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Stack;
 import java.util.stream.Collectors;
+import org.tymi.ospflooding.backend.utilities.math.Coordinate;
 
 public final class Algorithm {
      public static final double EarthRadiusMetres = 6371000;
@@ -25,10 +26,10 @@ public final class Algorithm {
           return EarthRadiusMetres * centralAngleRad;
      }
 
-     public static double[] LatLonToXY(double lat, double lon) {
+     public static Coordinate LatLonToXY(double lat, double lon) {
           double x = Math.toRadians(lon) * EarthRadiusMetres * Math.cos(Math.toRadians(lat));
           double y = Math.toRadians(lat) * EarthRadiusMetres;
-          return new double[]{x, y};
+          return new Coordinate(x, y);
      }
 
      public static double[] Swapped(JSONArray point) {
