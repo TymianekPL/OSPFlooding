@@ -9,9 +9,11 @@ import org.tymi.ospflooding.backend.models.FloodCache;
 import org.tymi.ospflooding.backend.models.FloodPoint;
 import org.tymi.ospflooding.backend.repositories.FloodCacheRepository;
 import org.tymi.ospflooding.backend.repositories.FloodPointRepository;
+import org.tymi.ospflooding.backend.utilities.Algorithm;
 import org.tymi.ospflooding.backend.utilities.AppLogger;
 
 import javax.imageio.ImageIO;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -22,7 +24,10 @@ import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static org.tymi.ospflooding.backend.utilities.Algorithm.computeConvexHull;
 
 @Service
 public class FloodService {
@@ -146,42 +151,30 @@ public class FloodService {
           return geoJson;
      }
 
+     private JSONObject createPolygonsFromPoints(List<FloodPoint> points, double cellSizeDegrees) {
+          if (points.isEmpty()) return createEmptyGeoJson();
 
-     private JSONObject createPolygonsFromPoints(List<FloodPoint> points, double resolution) {
-          if (points.isEmpty()) {
-               return createEmptyGeoJson();
+          double minLat = Double.MAX_VALUE, maxLat = Double.MIN_VALUE;
+          double minLon = Double.MAX_VALUE, maxLon = Double.MIN_VALUE;
+          for (FloodPoint p : points) {
+               minLat = Math.min(minLat, p.getLatitude());
+               maxLat = Math.max(maxLat, p.getLatitude());
+               minLon = Math.min(minLon, p.getLongitude());
+               maxLon = Math.max(maxLon, p.getLongitude());
           }
 
-          // bounds
-          double minLat = points.getFirst().getLatitude();
-          double maxLat = points.getFirst().getLatitude();
-          double minLon = points.getFirst().getLongitude();
-          double maxLon = points.getFirst().getLongitude();
-
-          for (FloodPoint point : points) {
-               minLat = Math.min(minLat, point.getLatitude());
-               maxLat = Math.max(maxLat, point.getLatitude());
-               minLon = Math.min(minLon, point.getLongitude());
-               maxLon = Math.max(maxLon, point.getLongitude());
-          }
-
-          double cellSize = resolution * 3; // Larger cells for polygons
-          int cols = (int) Math.ceil((maxLon - minLon) / cellSize);
-          int rows = (int) Math.ceil((maxLat - minLat) / cellSize);
+          int cols = (int)Math.ceil((maxLon - minLon) / cellSizeDegrees);
+          int rows = (int)Math.ceil((maxLat - minLat) / cellSizeDegrees);
 
           boolean[][] grid = new boolean[rows][cols];
-
-          for (FloodPoint point : points) {
-               int col = (int) ((point.getLongitude() - minLon) / cellSize);
-               int row = (int) ((maxLat - point.getLatitude()) / cellSize); // Inverted for array indexing
-
-               if (col >= 0 && col < cols && row >= 0 && row < rows) {
-                    grid[row][col] = true;
-               }
+          for (FloodPoint p : points) {
+               int r = (int)((maxLat - p.getLatitude()) / cellSizeDegrees);
+               int c = (int)((p.getLongitude() - minLon) / cellSizeDegrees);
+               if (r >= 0 && r < rows && c >= 0 && c < cols) grid[r][c] = true;
           }
 
-          JSONArray features = new JSONArray();
           boolean[][] visited = new boolean[rows][cols];
+          JSONArray features = new JSONArray();
 
           for (int r = 0; r < rows; r++) {
                for (int c = 0; c < cols; c++) {
@@ -194,23 +187,45 @@ public class FloodService {
                          while (!queue.isEmpty()) {
                               int[] cell = queue.poll();
                               cluster.add(cell);
-
-                              int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-                              for (int[] dir : directions) {
-                                   int nr = cell[0] + dir[0];
-                                   int nc = cell[1] + dir[1];
-                                   if (nr >= 0 && nr < rows && nc >= 0 && nc < cols &&
-                                           grid[nr][nc] && !visited[nr][nc]) {
+                              int[][] dirs = {{-1,0},{1,0},{0,-1},{0,1}};
+                              for (int[] d : dirs) {
+                                   int nr = cell[0]+d[0], nc = cell[1]+d[1];
+                                   if (nr>=0 && nr<rows && nc>=0 && nc<cols && grid[nr][nc] && !visited[nr][nc]) {
                                         visited[nr][nc] = true;
-                                        queue.add(new int[]{nr, nc});
+                                        queue.add(new int[]{nr,nc});
                                    }
                               }
                          }
 
-                         if (!cluster.isEmpty()) {
-                              JSONObject polygon = createPolygonFromCluster(cluster, maxLat, minLon, cellSize);
-                              features.put(polygon);
+                         List<Point2D.Double> pts = new ArrayList<>();
+                         for (int[] cell : cluster) {
+                              double lat = maxLat - cell[0]*cellSizeDegrees - cellSizeDegrees/2;
+                              double lon = minLon + cell[1]*cellSizeDegrees + cellSizeDegrees/2;
+                              pts.add(new Point2D.Double(lon, lat));
                          }
+
+                         List<Point2D.Double> hull = computeConvexHull(pts);
+
+                         JSONArray ring = new JSONArray();
+                         for (Point2D.Double pt : hull) ring.put(new JSONArray().put(pt.x).put(pt.y));
+                         ring.put(new JSONArray().put(hull.get(0).x).put(hull.get(0).y)); // close ring
+
+                         JSONArray polygonCoords = new JSONArray();
+                         polygonCoords.put(ring);
+
+                         JSONObject geometry = new JSONObject();
+                         geometry.put("type", "Polygon");
+                         geometry.put("coordinates", polygonCoords);
+
+                         JSONObject feature = new JSONObject();
+                         feature.put("type", "Feature");
+                         feature.put("geometry", geometry);
+                         JSONObject props = new JSONObject();
+                         props.put("flooded", true);
+                         props.put("pointCount", cluster.size());
+                         feature.put("properties", props);
+
+                         features.put(feature);
                     }
                }
           }
@@ -218,7 +233,6 @@ public class FloodService {
           JSONObject geoJson = new JSONObject();
           geoJson.put("type", "FeatureCollection");
           geoJson.put("features", features);
-
           return geoJson;
      }
 
@@ -240,7 +254,7 @@ public class FloodService {
                return createEmptyGeoJson();
           }
 
-          return createPolygonsFromPoints(points, cache.getResolutionDegrees());
+          return createPolygonsFromPoints(points, 0.0001);
      }
 
      @Transactional
