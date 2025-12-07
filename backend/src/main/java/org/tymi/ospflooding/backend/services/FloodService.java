@@ -282,7 +282,7 @@ public class FloodService {
      private Set<FloodPoint> downloadAndProcessFloodData(double south, double west, double north, double east,
                                                          String startDate, String endDate) throws IOException, InterruptedException {
           String url = String.format(Locale.ROOT,
-                  "https://services.sentinel-hub.com/ogc/wcs/" + environment.getProperty("WCS_UUID") +
+                  "https://services.sentinel-hub.com/ogc/wcs/" + System.getProperty("WCS_UUID") +
                           "?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=FLOODLAYER&FORMAT=image/png" +
                           "&BBOX=%f,%f,%f,%f&CRS=EPSG:4326&TIME=%s/%s&RESX=0.00005&RESY=0.00005",
                   west, south, east, north, startDate, endDate);
