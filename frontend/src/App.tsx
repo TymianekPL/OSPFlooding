@@ -13,10 +13,14 @@ import {
      type ThemeName
 } from "./types";
 import { configureLeafletIcons, calculateETA } from "./utilities/leafletConfig";
+import {Logger} from "./utilities/logger.ts";
 
 configureLeafletIcons();
 
 function App() {
+     const fetchLogger = new Logger("fetch");
+     const themeLogger = new Logger("theme");
+
      const [theme, setTheme] = useState<ThemeName>(() =>
           (localStorage.getItem("theme") as ThemeName | null) || "light"
      );
@@ -44,6 +48,7 @@ function App() {
      }, []);
 
      useEffect(() => {
+          themeLogger.debug(`Applying ${theme}`);
           localStorage.setItem("theme", theme);
           document.documentElement.setAttribute("data-theme", theme);
      }, [theme]);
@@ -61,17 +66,21 @@ function App() {
                     `http://localhost:8080/api/flood/polygons?south=0&west=0&north=0&east=0&startDate=${startDate}&endDate=${endDate}`
                );
                if (polygonsRes.ok) {
+                    fetchLogger.info("Fetched polygon flood data");
                     setFloodPolygons(await polygonsRes.json());
-               }
+               } else
+                    fetchLogger.error("Failed to fetch polygon flood data");
 
                const pointsRes = await fetch(
                     `http://localhost:8080/api/flood/points?south=0&west=0&north=0&east=0&startDate=${startDate}&endDate=${endDate}`
                );
                if (pointsRes.ok) {
+                    fetchLogger.info("Fetched flood data");
                     setFloodPoints(await pointsRes.json());
-               }
-          } catch (err) {
-               console.error("Error loading flood data:", err);
+               } else
+                    fetchLogger.error("Failed to fetch flood data");
+          } catch (error) {
+               fetchLogger.error(`Error loading flood data: ${error}`);
           } finally {
                setLoadingFloodData(false);
           }
@@ -85,10 +94,13 @@ function App() {
                     const res = await fetch(
                          `http://localhost:8080/api/evac/route?start=${start[0]},${start[1]}&end=${end[0]},${end[1]}`
                     );
-                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    if (!res.ok) {
+                         fetchLogger.error(`Failed to fetch the route: ${res.statusText}`);
+                         throw new Error(`HTTP error! status: ${res.status}`);
+                    }
 
                     const data = await res.json();
-                    if (data.geojson) {
+                    if (data.geojson && !data.empty) {
                          setRouteGeoJson(data.geojson);
                          if (data.geojson.features?.[0]?.properties?.totalLength) {
                               const distance = data.geojson.features[0].properties.totalLength;
@@ -97,10 +109,11 @@ function App() {
                               setRouteInfo({ distance, estimatedTime, pointCount });
                          }
                     } else {
+                         fetchLogger.warn("Failed to load the route because the route was not found or was outside of the coverage area");
                          alert("No route found. Please try a different origin or destination.");
                     }
-               } catch (err) {
-                    console.error("Error fetching route:", err);
+               } catch (error) {
+                    fetchLogger.error(`Error fetching route: ${error}`);
                     alert("Failed to calculate route. Please check your connection and try again.");
                } finally {
                     setLoadingRoute(false);
