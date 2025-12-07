@@ -3,6 +3,7 @@ package org.tymi.ospflooding.backend;
 import org.junit.jupiter.api.Test;
 import org.json.JSONArray;
 import org.tymi.ospflooding.backend.utilities.Algorithm;
+import org.tymi.ospflooding.backend.utilities.math.Coordinate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,17 +26,17 @@ public class AlgorithmTest {
      @Test
      void testLatLonToXY() {
           // Equator point
-          double[] xy0 = Algorithm.LatLonToXY(0, 0);
-          assertEquals(0.0, xy0[0], 1e-6);
-          assertEquals(0.0, xy0[1], 1e-6);
+          Coordinate xy0 = Algorithm.LatLonToXY(0, 0);
+          assertEquals(0.0, xy0.x(), 1e-6);
+          assertEquals(0.0, xy0.y(), 1e-6);
 
           // Check that Y increases with latitude
-          double[] xy1 = Algorithm.LatLonToXY(1, 0);
-          assertTrue(xy1[1] > xy0[1]);
+          Coordinate xy1 = Algorithm.LatLonToXY(1, 0);
+          assertTrue(xy1.y() > xy0.y());
 
           // Check that X increases with longitude at equator
-          double[] xy2 = Algorithm.LatLonToXY(0, 1);
-          assertTrue(xy2[0] > xy0[0]);
+          Coordinate xy2 = Algorithm.LatLonToXY(0, 1);
+          assertTrue(xy2.x() > xy0.x());
      }
 
      @Test

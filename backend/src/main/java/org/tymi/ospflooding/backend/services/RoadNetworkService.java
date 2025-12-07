@@ -53,6 +53,10 @@ public class RoadNetworkService {
           this.roadTree = new KDTree<>(new NodeConverter());
      }
 
+     public void RebuildTree() {
+          roadTree.build(nodes.values());
+     }
+
      public void loadOSMRoads(double south, double west, double north, double east) throws UncheckedIOException, InterruptedException, IOException {
           if (roadRepo.count() > 0) {
                edges.clear();
@@ -83,8 +87,8 @@ public class RoadNetworkService {
 
                     edgeIdCounter.updateAndGet(curr -> Math.max(curr, id + 1));
                }
-
-               roadTree.build(nodes.values());
+               
+               RebuildTree();
                return;
           }
 
@@ -151,7 +155,7 @@ public class RoadNetworkService {
                }
           }
 
-          roadTree.build(nodes.values());
+          RebuildTree();
      }
 
      public List<PathRecord> findShortestPaths(double startLat, double startLon,
