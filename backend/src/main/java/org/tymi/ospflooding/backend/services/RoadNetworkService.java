@@ -162,18 +162,22 @@ public class RoadNetworkService {
           int endNode = findNearestNode(endLat, endLon);
 
           if (startNode == -1 || endNode == -1) return Collections.emptyList();
-          double south = nodes.values().stream().mapToDouble(Node::lat).min().orElse(startLat);
-          double west = nodes.values().stream().mapToDouble(Node::lon).min().orElse(startLon);
-          double north = nodes.values().stream().mapToDouble(Node::lat).max().orElse(endLat);
-          double east = nodes.values().stream().mapToDouble(Node::lon).max().orElse(endLon);
 
-          Set<Long> floodedPoints = floodService.loadFloodedPoints(south, west, north, east);
+          Set<Long> floodedPoints = floodService.loadFloodedPoints(
+                  nodes.values().stream().mapToDouble(Node::lat).min().orElse(startLat),
+                  nodes.values().stream().mapToDouble(Node::lon).min().orElse(startLon),
+                  nodes.values().stream().mapToDouble(Node::lat).max().orElse(endLat),
+                  nodes.values().stream().mapToDouble(Node::lon).max().orElse(endLon)
+          );
 
           Map<Integer, Weight> dist = new HashMap<>();
           Map<Integer, Integer> previousEdge = new HashMap<>();
           Set<Integer> visited = new HashSet<>();
-          PriorityQueue<NodeDistance> pq =
-                  new PriorityQueue<>(distanceComparator);
+
+          PriorityQueue<NodeDistance> pq = new PriorityQueue<>(distanceComparator.thenComparingDouble(nd ->
+                  Haversine(nodes.get(nd.node()).lat(), nodes.get(nd.node()).lon(),
+                          nodes.get(endNode).lat(), nodes.get(endNode).lon())
+          ));
 
           for (int nid : nodes.keySet()) {
                dist.put(nid, new Weight(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
@@ -184,7 +188,6 @@ public class RoadNetworkService {
           while (!pq.isEmpty()) {
                NodeDistance nd = pq.poll();
                int current = nd.node();
-
                if (!visited.add(current)) continue;
                if (current == endNode) break;
 
@@ -208,7 +211,11 @@ public class RoadNetworkService {
                     if (compare(newW, old) < 0) {
                          dist.put(to.id(), newW);
                          previousEdge.put(to.id(), edgeId);
-                         pq.add(new NodeDistance(to.id(), newW));
+
+                         double heuristic = Haversine(to.lat(), to.lon(),
+                                 nodes.get(endNode).lat(), nodes.get(endNode).lon());
+                         Weight fScore = new Weight(newW.floodPenalty(), newW.length() + heuristic);
+                         pq.add(new NodeDistance(to.id(), fScore));
                     }
                }
           }
