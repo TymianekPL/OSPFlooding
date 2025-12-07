@@ -1,5 +1,7 @@
 # OSPFlooding
 
+Latest version: v1.0.0
+
 ## Checks
 
 **Main**: [![Production CI](https://github.com/TymianekPL/OSPFlooding/actions/workflows/ci.yml/badge.svg)](https://github.com/TymianekPL/OSPFlooding/actions/workflows/ci.yml)
@@ -76,7 +78,7 @@ After building or downloading the backend:
     > java -jar build/libs/backend-x.y.z-SNAPSHOT.jar
     > ```
 
-_Note: replace `x.y.z` with the artifact version, for instance `0.0.1` (which would produce `backend-0.0.1-SNAPSHOT.jar`)_
+_Note: replace `x.y.z` with the artifact version, for instance `1.0.0` (which would produce `backend-0.0.1-SNAPSHOT.jar`)_
 _Note: the directory contains two jar files. Run  the one that does **not** contain the `-plain` suffix_
 ---
 
