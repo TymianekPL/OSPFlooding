@@ -47,6 +47,8 @@ Latest version: v1.0.0
 > ./gradlew clean build
 > ```
 
+_Note: The build will probably fail if you are building it for the first time. The solution is just to re-run the build command (`gradlew clean build`) This is a Java problem_
+
 Artifacts end up in `backend/build/libs/`.
 
 ### Frontend
