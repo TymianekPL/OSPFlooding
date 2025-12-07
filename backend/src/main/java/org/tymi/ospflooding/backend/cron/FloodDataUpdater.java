@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.tymi.ospflooding.backend.services.FloodService;
 import org.tymi.ospflooding.backend.records.Node;
 import org.tymi.ospflooding.backend.services.RoadNetworkService;
+import org.tymi.ospflooding.backend.utilities.AppLogger;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -14,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 
 @Component
 public class FloodDataUpdater {
+     private static final AppLogger logger = new AppLogger(FloodDataUpdater.class, AppLogger.Category.CRON);
      private final FloodService floodService;
      private final RoadNetworkService roadNetworkService;
 
@@ -34,10 +36,15 @@ public class FloodDataUpdater {
 
      public void updateFloodData() {
           // TODO: Use the database
-          double south = roadNetworkService.nodes.values().stream().mapToDouble(Node::lat).min().orElse(50.045);
-          double west  = roadNetworkService.nodes.values().stream().mapToDouble(Node::lon).min().orElse(19.900);
+          double south = roadNetworkService.nodes.values().stream().mapToDouble(Node::lat).min().orElseGet(() -> {
+               var warning = logger.warn("Could not find the map bounds. Using defaults provided by the database");
+               warning.debug("    Note: This is not the expected behaviour");
+               return 50.045;
+          });
+          // no need for the logging here; these cannot ever reach the orElse branch unless the orElseGet branch was reached above ^
+          double west = roadNetworkService.nodes.values().stream().mapToDouble(Node::lon).min().orElse(19.900);
           double north = roadNetworkService.nodes.values().stream().mapToDouble(Node::lat).max().orElse(50.070);
-          double east  = roadNetworkService.nodes.values().stream().mapToDouble(Node::lon).max().orElse(19.960);
+          double east = roadNetworkService.nodes.values().stream().mapToDouble(Node::lon).max().orElse(19.960);
 
           // fetch data for the last 24h
           LocalDate endDate = LocalDate.now();
@@ -51,9 +58,9 @@ public class FloodDataUpdater {
                        startDate.format(formatter),
                        endDate.format(formatter)
                );
-               System.out.println("Flood data updated successfully");
+               logger.info("Flood data updated successfully");
           } catch (IOException | InterruptedException e) {
-               System.err.println("Failed to update flood data: " + e.getMessage());
+               logger.error("Failed to update flood data: " + e.getMessage());
           }
      }
 }
