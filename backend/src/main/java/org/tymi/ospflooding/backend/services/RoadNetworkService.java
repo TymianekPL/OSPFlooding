@@ -38,8 +38,8 @@ public class RoadNetworkService {
      private final AtomicInteger edgeIdCounter = new AtomicInteger(1);
 
      public final Map<Integer, Node> nodes = new HashMap<>();
-     private final Map<Integer, Edge> edges = new HashMap<>();
-     private final Map<Integer, List<Integer>> adjacency = new HashMap<>();
+     public final Map<Integer, Edge> edges = new HashMap<>();
+     public final Map<Integer, List<Integer>> adjacency = new HashMap<>();
 
      private final KDTree<Node, NodeConverter> roadTree;
 
@@ -240,7 +240,7 @@ public class RoadNetworkService {
      private static final int LAT_TOL = 30;   // ~3m
      private static final int LON_TOL = 45;   // ~3m
 
-     private boolean isFlooded(Set<Long> floodedPoints, Node n) {
+     public boolean isFlooded(Set<Long> floodedPoints, Node n) {
           int latInt = toIntCoord(n.lat());
           int lonInt = toIntCoord(n.lon());
 

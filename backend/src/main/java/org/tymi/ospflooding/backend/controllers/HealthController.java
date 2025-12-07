@@ -1,4 +1,4 @@
-package org.tymi.ospflooding.backend;
+package org.tymi.ospflooding.backend.controllers;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
