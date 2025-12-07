@@ -71,6 +71,7 @@ public class RoadNetworkServiceTest {
           Node n2 = new Node(2, 0, 1);
           service.nodes.put(1, n1);
           service.nodes.put(2, n2);
+          service.RebuildTree();
 
           JSONArray coords = new JSONArray();
           JSONArray p1 = new JSONArray(); p1.put(0); p1.put(0);
