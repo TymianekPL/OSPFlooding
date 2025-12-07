@@ -1,4 +1,5 @@
 package org.tymi.ospflooding.backend.services;
+
 import org.tymi.ospflooding.backend.records.Edge;
 import org.tymi.ospflooding.backend.records.Node;
 
@@ -9,7 +10,9 @@ import org.tymi.ospflooding.backend.models.RoadSegment;
 import org.tymi.ospflooding.backend.records.Weight;
 import org.tymi.ospflooding.backend.repositories.RoadSegmentRepository;
 import org.tymi.ospflooding.backend.records.NodeDistance;
+import org.tymi.ospflooding.backend.utilities.NodeConverter;
 import org.tymi.ospflooding.backend.utilities.PathRecord;
+import org.tymi.ospflooding.backend.utilities.math.KDTree;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -25,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.tymi.ospflooding.backend.services.FloodService.pack;
 import static org.tymi.ospflooding.backend.services.FloodService.toIntCoord;
 import static org.tymi.ospflooding.backend.utilities.Algorithm.Haversine;
-import static org.tymi.ospflooding.backend.utilities.Algorithm.LatLonToXY;
 import static org.tymi.ospflooding.backend.utilities.Algorithm.Swapped;
 
 @Service
@@ -39,6 +41,8 @@ public class RoadNetworkService {
      private final Map<Integer, Edge> edges = new HashMap<>();
      private final Map<Integer, List<Integer>> adjacency = new HashMap<>();
 
+     private final KDTree<Node, NodeConverter> roadTree;
+
      private static final Comparator<NodeDistance> distanceComparator =
              Comparator.<NodeDistance>comparingDouble(nd -> nd.weight().floodPenalty())
                      .thenComparingDouble(nd -> nd.weight().length());
@@ -46,6 +50,7 @@ public class RoadNetworkService {
      public RoadNetworkService(RoadSegmentRepository roadRepo, FloodService floodService) {
           this.roadRepo = roadRepo;
           this.floodService = floodService;
+          this.roadTree = new KDTree<>(new NodeConverter());
      }
 
      public void loadOSMRoads(double south, double west, double north, double east) throws UncheckedIOException, InterruptedException, IOException {
@@ -78,6 +83,8 @@ public class RoadNetworkService {
 
                     edgeIdCounter.updateAndGet(curr -> Math.max(curr, id + 1));
                }
+
+               roadTree.build(nodes.values());
                return;
           }
 
@@ -143,6 +150,8 @@ public class RoadNetworkService {
                     }
                }
           }
+
+          roadTree.build(nodes.values());
      }
 
      public List<PathRecord> findShortestPaths(double startLat, double startLon,
@@ -154,14 +163,14 @@ public class RoadNetworkService {
 
           if (startNode == -1 || endNode == -1) return Collections.emptyList();
           double south = nodes.values().stream().mapToDouble(Node::lat).min().orElse(startLat);
-          double west  = nodes.values().stream().mapToDouble(Node::lon).min().orElse(startLon);
+          double west = nodes.values().stream().mapToDouble(Node::lon).min().orElse(startLon);
           double north = nodes.values().stream().mapToDouble(Node::lat).max().orElse(endLat);
-          double east  = nodes.values().stream().mapToDouble(Node::lon).max().orElse(endLon);
+          double east = nodes.values().stream().mapToDouble(Node::lon).max().orElse(endLon);
 
           Set<Long> floodedPoints = floodService.loadFloodedPoints(south, west, north, east);
 
           Map<Integer, Weight> dist = new HashMap<>();
-          Map<Integer, Integer> prevEdge = new HashMap<>();
+          Map<Integer, Integer> previousEdge = new HashMap<>();
           Set<Integer> visited = new HashSet<>();
           PriorityQueue<NodeDistance> pq =
                   new PriorityQueue<>(distanceComparator);
@@ -184,7 +193,7 @@ public class RoadNetworkService {
                     if (edge == null) continue;
 
                     Node from = nodes.get(edge.fromNode());
-                    Node to   = nodes.get(edge.toNode());
+                    Node to = nodes.get(edge.toNode());
 
                     boolean flooded = isFlooded(floodedPoints, from) || isFlooded(floodedPoints, to);
                     double penalty = flooded ? 1.0 : 0.0;
@@ -198,24 +207,24 @@ public class RoadNetworkService {
                     Weight old = dist.get(to.id());
                     if (compare(newW, old) < 0) {
                          dist.put(to.id(), newW);
-                         prevEdge.put(to.id(), edgeId);
+                         previousEdge.put(to.id(), edgeId);
                          pq.add(new NodeDistance(to.id(), newW));
                     }
                }
           }
 
-          if (!prevEdge.containsKey(endNode) && startNode != endNode) {
+          if (!previousEdge.containsKey(endNode) && startNode != endNode) {
                return Collections.emptyList();
           }
 
           LinkedList<Integer> edgePath = new LinkedList<>();
-          int cur = endNode;
-          while (cur != startNode) {
-               Integer eId = prevEdge.get(cur);
-               if (eId == null) break;
-               edgePath.addFirst(eId);
-               Edge e = edges.get(eId);
-               cur = e.fromNode();
+          int current = endNode;
+          while (current != startNode) {
+               Integer edgeId = previousEdge.get(current);
+               if (edgeId == null) break;
+               edgePath.addFirst(edgeId);
+               Edge edge = edges.get(edgeId);
+               current = edge.fromNode();
           }
 
           double totalLen = edgePath.stream().mapToDouble(id -> edges.get(id).length()).sum();
@@ -296,17 +305,6 @@ public class RoadNetworkService {
      }
 
      private int findNearestNode(double lat, double lon) {
-          double[] p = LatLonToXY(lat, lon);
-          double best = Double.POSITIVE_INFINITY;
-          int bestId = -1;
-          for (Node n : nodes.values()) {
-               double[] xy = LatLonToXY(n.lat(), n.lon());
-               double d = Math.hypot(p[0] - xy[0], p[1] - xy[1]);
-               if (d < best) {
-                    best = d;
-                    bestId = n.id();
-               }
-          }
-          return bestId;
+          return roadTree.findNearest(lat, lon).id();
      }
 }
