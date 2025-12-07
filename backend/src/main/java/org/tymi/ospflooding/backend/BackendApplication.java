@@ -26,7 +26,7 @@ public class BackendApplication {
           System.setProperty("spring.datasource.username", dotenv.get("DB_USER"));
           System.setProperty("spring.datasource.password", dotenv.get("DB_PASSWORD"));
           System.setProperty("spring.datasource.driver-class-name", "org.mariadb.jdbc.Driver");
-
+          System.setProperty("WCS_UUID", dotenv.get("WCS_UUID"));
 
           SpringApplication.run(BackendApplication.class, args);
      }
