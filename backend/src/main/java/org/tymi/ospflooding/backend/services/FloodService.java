@@ -287,7 +287,7 @@ public class FloodService {
                           "&BBOX=%f,%f,%f,%f&CRS=EPSG:4326&TIME=%s/%s&RESX=0.00005&RESY=0.00005",
                   west, south, east, north, startDate, endDate);
 
-          System.out.println("Downloading flood data from: " + url);
+          var downloadLogger = logger.info("Downloading flood data from: " + url);
 
           HttpRequest request = HttpRequest.newBuilder()
                   .uri(URI.create(url))
@@ -349,6 +349,7 @@ public class FloodService {
                }
           });
           floodPointRepository.saveAll(floodPoints);
+          downloadLogger.debug("Committed flood points to the database");
 
           return floodPoints;
      }
