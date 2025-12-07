@@ -1,5 +1,6 @@
 import React, {useState} from "react";
 import type {RouteInfo, ThemeName} from "../types";
+import {Logger} from "../utilities/logger.ts";
 
 interface ControlPanelProps {
      onRouteRequest: (start: [number, number], end: [number, number]) => void;
@@ -32,6 +33,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
      setOrigin,
      theme
 }) => {
+     const logger = new Logger("controlPanel");
      const [isLoading, setIsLoading] = useState(false);
 
      const handleRequestRoute = async () => {
@@ -39,6 +41,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                alert("Please click on the map to select an origin point first.");
                return;
           }
+
+          logger.info("Requesting an evacuation route");
 
           setIsLoading(true);
           try {
@@ -57,16 +61,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
      };
 
      const handleSetCurrentLocation = () => {
+          logger.info("Trying to fetch the location");
           if (navigator.geolocation) {
                navigator.geolocation.getCurrentPosition(
                     (position) => {
+                         logger.info(`Fetched the location as [${position.coords.latitude}, ${position.coords.longitude}]`);
                          setOrigin([position.coords.latitude, position.coords.longitude]);
                     },
                     (error) => {
+                         logger.warn(`Unable to get your location: ${error.message}`);
                          alert(`Unable to get your location: ${error.message}`);
                     }
                );
           } else {
+               logger.warn("Geolocation is not supported by the browser");
                alert("Geolocation is not supported by your browser.");
           }
      };
