@@ -9,6 +9,7 @@ import org.tymi.ospflooding.backend.models.FloodCache;
 import org.tymi.ospflooding.backend.models.FloodPoint;
 import org.tymi.ospflooding.backend.repositories.FloodCacheRepository;
 import org.tymi.ospflooding.backend.repositories.FloodPointRepository;
+import org.tymi.ospflooding.backend.utilities.AppLogger;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -25,6 +26,7 @@ import java.util.stream.IntStream;
 
 @Service
 public class FloodService {
+     private static final AppLogger logger = new AppLogger(FloodService.class, AppLogger.Category.SERVICE);
      private final FloodCacheRepository floodCacheRepository;
      private final FloodPointRepository floodPointRepository;
      private final HttpClient httpClient;
@@ -248,9 +250,8 @@ public class FloodService {
           Optional<FloodCache> freshCache = floodCacheRepository.findBySouthAndWestAndNorthAndEastAndLastUpdatedAfter(
                   south, west, north, east, twentyFourHoursAgo);
 
-          // TODO: Logging
           if (freshCache.isPresent()) {
-               System.out.println("Using cached flood data (last updated: " +
+               logger.info("Using cached flood data (last updated: " +
                        freshCache.get().getLastUpdated() + ")");
                loadFromCache(freshCache.get());
                return;
@@ -261,13 +262,11 @@ public class FloodService {
                   south, west, north, east, startDate, endDate);
 
           if (staleCache.isPresent()) {
-               // TODO: Logging
-               System.out.println("Cache is stale (>24h), updating flood data...");
+               logger.info("Cache is stale (>24h), updating flood data...");
                floodPointRepository.deleteByFloodCacheId(staleCache.get().getId());
                floodCacheRepository.delete(staleCache.get());
           } else {
-               // TODO: Logging
-               System.out.println("No cache found, downloading new flood data...");
+               logger.info("No cache found, downloading new flood data...");
           }
 
           Set<FloodPoint> floodPoints = downloadAndProcessFloodData(south, west, north, east, startDate, endDate);
@@ -288,7 +287,7 @@ public class FloodService {
                           "&BBOX=%f,%f,%f,%f&CRS=EPSG:4326&TIME=%s/%s&RESX=0.00005&RESY=0.00005",
                   west, south, east, north, startDate, endDate);
 
-          System.out.println("Downloading flood data from: " + url);
+          var downloadLogger = logger.info("Downloading flood data from: " + url);
 
           HttpRequest request = HttpRequest.newBuilder()
                   .uri(URI.create(url))
@@ -299,7 +298,8 @@ public class FloodService {
           HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
           if (response.statusCode() != 200) {
-               // TODO: Logging
+               logger.error("Failed to download flood data. Status: " + response.statusCode() +
+                       ", Body: " + new String(response.body()));
                throw new IOException("Failed to download flood data. Status: " + response.statusCode() +
                        ", Body: " + new String(response.body()));
           }
@@ -349,6 +349,7 @@ public class FloodService {
                }
           });
           floodPointRepository.saveAll(floodPoints);
+          downloadLogger.debug("Committed flood points to the database");
 
           return floodPoints;
      }
@@ -365,8 +366,7 @@ public class FloodService {
           String cacheKey = floodCache.getCacheKey();
           floodedPointsCache.put(cacheKey, pointKeys);
 
-          // TODO: Logging
-          System.out.println("Loaded " + points.size() + " flood points from database cache");
+          logger.info("Loaded " + points.size() + " flood points from database cache");
      }
 
      private boolean isFlooded(int rgb) {
@@ -404,8 +404,7 @@ public class FloodService {
                floodCacheRepository.delete(cache);
           }
 
-          // TODO: Logging
-          System.out.println("Cleaned up " + count + " old cache entries");
+          logger.debug("Cleaned up " + count + " old cache entries");
           return count;
      }
      public static int toIntCoord(double value) {
