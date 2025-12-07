@@ -6,10 +6,12 @@ import org.springframework.web.bind.annotation.*;
 import org.tymi.ospflooding.backend.records.Node;
 import org.tymi.ospflooding.backend.services.FloodService;
 import org.tymi.ospflooding.backend.services.RoadNetworkService;
+import org.tymi.ospflooding.backend.utilities.AppLogger;
 
 @RestController
 @RequestMapping("/api/flood")
 public class FloodController {
+     private static final AppLogger logger = new AppLogger(FloodController.class, AppLogger.Category.CONTROLLER);
      private final FloodService floodService;
      private final RoadNetworkService roadNetworkService;
 
@@ -42,8 +44,8 @@ public class FloodController {
                return ResponseEntity.ok(geoJson.toString());
 
           } catch (Exception e) {
-               e.printStackTrace();
-               return ResponseEntity.status(500).body("Error getting flood polygons: " + e.getMessage());
+               logger.error(e.getMessage());
+               return ResponseEntity.status(500).body("Error getting flood polygons");
           }
      }
 
@@ -74,7 +76,7 @@ public class FloodController {
                return ResponseEntity.ok(geoJson.toString());
 
           } catch (Exception e) {
-               e.printStackTrace();
+               logger.error(e.getMessage());
                return ResponseEntity.status(500).body("Error getting flood points: " + e.getMessage());
           }
      }
@@ -104,7 +106,7 @@ public class FloodController {
                return ResponseEntity.ok(response.toString());
 
           } catch (Exception e) {
-               e.printStackTrace();
+               logger.error(e.getMessage());
                return ResponseEntity.status(500).body("Error checking flood status: " + e.getMessage());
           }
      }
